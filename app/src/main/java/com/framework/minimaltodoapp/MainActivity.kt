@@ -1,5 +1,6 @@
 package com.framework.minimaltodoapp
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.os.Bundle
@@ -8,6 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,17 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.framework.minimaltodoapp.viewmodel.TodoViewModel
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
-import androidx.core.content.ContextCompat
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,12 +44,11 @@ class MainActivity : ComponentActivity() {
 fun MinimalTodoApp(viewModel: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext as Application))) {
     var taskInput by remember { mutableStateOf("") }
     val context = LocalContext.current
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (!isGranted) {
-            // Handle permission denial (e.g., show a message)
-        } else {
-            // Permission denied
-            showPermissionDeniedDialog()
+            showPermissionDialog = true
         }
     }
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -58,7 +59,6 @@ fun MinimalTodoApp(viewModel: TodoViewModel = viewModel(factory = TodoViewModelF
             }
         }
     }
-
 
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -108,10 +108,19 @@ fun MinimalTodoApp(viewModel: TodoViewModel = viewModel(factory = TodoViewModelF
             TaskList(viewModel)
         }
     }
-}
 
-fun showPermissionDeniedDialog() {
-    TODO("Not yet implemented")
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text("Permission Required") },
+            text = { Text("This app needs microphone access to add tasks via voice. Please grant the permission in Settings.") },
+            confirmButton = {
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 }
 
 class TodoViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
@@ -127,26 +136,44 @@ class TodoViewModelFactory(private val application: Application) : ViewModelProv
 @Composable
 fun TaskList(viewModel: TodoViewModel) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
+    val coroutineScope = rememberCoroutineScope()
 
     LazyColumn(modifier = Modifier.padding(top = 16.dp)) {
         items(tasks) { task ->
-            Row(
+            var offsetX by remember { mutableStateOf(0f) }
+            val dragState = rememberDraggableState { delta ->
+                offsetX += delta
+                if (offsetX < -100f) {
+                    coroutineScope.launch {
+                        viewModel.deleteTask(task)
+                        offsetX = 0f
+                    }
+                }
+            }
+
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(50.dp)
+                    .draggable(
+                        state = dragState,
+                        orientation = Orientation.Horizontal
+                    )
             ) {
-                Checkbox(
-                    checked = task.isCompleted,
-                    onCheckedChange = { viewModel.updateTask(task.copy(isCompleted = it)) }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = task.title, modifier = Modifier.weight(1f))
-                Button(onClick = { viewModel.deleteTask(task) }) {
-                    Text("Delete")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = task.isCompleted,
+                        onCheckedChange = { viewModel.updateTask(task.copy(isCompleted = it)) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = task.title, modifier = Modifier.weight(1f))
                 }
             }
         }
     }
-    
 }

@@ -38,7 +38,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11" // Compatible with Compose 1.7.0
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
 }
 
@@ -54,7 +54,7 @@ dependencies {
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    kapt(libs.androidx.room.compiler) // kapt still works without explicit plugin declaration
+    kapt(libs.androidx.room.compiler)
 
     // Testing
     testImplementation(libs.junit)
