@@ -29,13 +29,16 @@ import com.framework.minimaltodoapp.viewmodel.TodoViewModel
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.runtime.rememberCoroutineScope
+import com.framework.minimaltodoapp.ui.theme.MinimalTodoAppTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MinimalTodoApp()
+            MinimalTodoAppTheme {
+                MinimalTodoApp()
+            }
         }
     }
 }
